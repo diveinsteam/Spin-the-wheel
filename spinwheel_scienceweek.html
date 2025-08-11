@@ -1,0 +1,4276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Editable Spinner Wheel</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: #f0f8ff;
+      font-family: sans-serif;
+    }
+    canvas {
+      border-radius: 50%;
+      border: 5px solid #333;
+      background: white;
+    }
+    #spinButton {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 18px;
+      background: linear-gradient(45deg, #ff6b6b, #f06595);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s;
+    }
+    #spinButton:hover {
+      transform: scale(1.1);
+    }
+    .action-button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 16px;
+      background: linear-gradient(45deg, #20c997, #0d6efd);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      transition: transform 0.2s;
+    }
+    .action-button:hover {
+      transform: scale(1.05);
+    }
+    #questionBox {
+      margin-top: 20px;
+      width: 80%;
+      max-width: 500px;
+      display: none;
+    }
+    .question h4 {
+      margin: 0;
+    }
+    .correct-answer {
+      font-weight: bold;
+      color: green;
+    }
+    .correct {
+      background-color: #c8f7c5;
+    }
+    .incorrect {
+      background-color: #f7c5c5;
+    }
+    .popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #ffffff;
+      font-weight: bold;
+      font-size: 1.5em;
+      padding: 20px 40px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
+      z-index: 200;
+      text-align: center;
+    }
+    #popupWin {
+      color: darkgreen;
+      border: 3px solid #28a745;
+    }
+    #popupTry {
+      color: #6f42c1;
+      border: 3px solid #6f42c1;
+      background: #f8f0ff;
+      animation: bounce 0.8s ease infinite alternate;
+    }
+    .popup.hide {
+      display: none;
+    }
+    @keyframes glow {
+      0% { text-shadow: 0 0 5px #001f4d; color: navy; font-size: 36px; }
+      100% { text-shadow: 0 0 20px #001f4d, 0 0 30px #001f4d; color: navy; font-size: 48px; }
+    }
+    .confetti {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 100;
+      overflow: hidden;
+    }
+    .confetti-piece {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background-color: red;
+      animation: confetti-fall 3s linear infinite;
+      opacity: 0.8;
+    }
+    @keyframes confetti-fall {
+      to {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+    @keyframes bounce {
+      from { transform: translateY(-10px); }
+      to { transform: translateY(10px); }
+    }
+  </style>
+</head>
+<body>
+  <iframe src="silence.mp3" allow="autoplay" id="audio" style="display: none"></iframe>
+  <canvas id="wheel" width="400" height="400"></canvas>
+  <button id="spinButton">Spin</button>
+  <div id="questionBox"></div>
+  <div class="confetti" id="confetti"></div>
+  <div class="popup hide" id="popupWin">🎉 Congratulations, future of STEM is in good hands! 🎉</div>
+  <div class="popup hide" id="popupTry"></div>
+  <audio id="soundWin" src="win.mp3" preload="auto"></audio>
+  <audio id="soundFail" src="fail.mp3" preload="auto"></audio>
+
+<script>
+const questions_why_tho=[
+  {
+    "q": "Why do we get goosebumps?",
+    "options": [
+      "Cold & fear response",
+      "Heat",
+      "Excitement"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does your stomach growl when hungry?",
+    "options": [
+      "Digestive movement",
+      "Stomach acid",
+      "Air bubbles"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do we yawn?",
+    "options": [
+      "To cool the brain",
+      "To get oxygen",
+      "Because we\u2019re bored"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do onions make us cry?",
+    "options": [
+      "They release sulfur gas",
+      "They're spicy",
+      "Allergic reaction"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do we dream?",
+    "options": [
+      "Brain processing emotions",
+      "Sleepwalking",
+      "Lack of sleep"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do we sweat?",
+    "options": [
+      "To cool the body",
+      "To release salt",
+      "Because of humidity"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does your heart beat faster when scared?",
+    "options": [
+      "Adrenaline rush",
+      "Lack of oxygen",
+      "Overheating"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do fingers wrinkle in water?",
+    "options": [
+      "Improved grip",
+      "Skin damage",
+      "Cold reaction"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do cats purr?",
+    "options": [
+      "To relax themselves",
+      "To talk to humans",
+      "Out of fear"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does hair turn gray?",
+    "options": [
+      "Loss of pigment",
+      "Sunlight",
+      "Dirty water"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do zebras have stripes?",
+    "options": [
+      "To confuse predators",
+      "Fashion",
+      "Heat protection"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do some people sneeze in sunlight?",
+    "options": [
+      "Nerve reflex",
+      "Dust",
+      "Allergy"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does your nose run in the cold?",
+    "options": [
+      "Moisture in the air",
+      "Sweating",
+      "Infection"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do stars twinkle?",
+    "options": [
+      "Atmospheric distortion",
+      "Stars move",
+      "Optical illusion"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do we shiver?",
+    "options": [
+      "To generate heat",
+      "To burn calories",
+      "To stretch muscles"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do your ears pop on planes?",
+    "options": [
+      "Pressure change",
+      "Altitude",
+      "Air conditioning"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do chilis feel hot?",
+    "options": [
+      "They activate heat sensors",
+      "They raise body temp",
+      "They\u2019re spicy"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do mirrors flip left and right but not up and down?",
+    "options": [
+      "Because of how we perceive reflections",
+      "Physics",
+      "Glass shape"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does helium make your voice higher?",
+    "options": [
+      "Changes vocal cord vibration",
+      "It\u2019s cold",
+      "It dries your throat"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does toast land butter side down?",
+    "options": [
+      "Physics & height",
+      "Toast is heavy",
+      "Gravity hates us"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do we blink?",
+    "options": [
+      "To keep eyes moist",
+      "To block dust",
+      "For fun"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do we hiccup?",
+    "options": [
+      "Diaphragm spasm",
+      "Swallowing air",
+      "Laughing"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do leaves change color?",
+    "options": [
+      "Less sunlight",
+      "More chlorophyll",
+      "Rain"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do clouds float?",
+    "options": [
+      "They\u2019re less dense than air",
+      "They're magical",
+      "They have gas"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do flamingos stand on one leg?",
+    "options": [
+      "To conserve body heat",
+      "For balance",
+      "Habit"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does ice float?",
+    "options": [
+      "It\u2019s less dense than water",
+      "Air bubbles",
+      "Magic"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do birds migrate?",
+    "options": [
+      "To find food and warmth",
+      "For fun",
+      "To exercise"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do volcanoes erupt?",
+    "options": [
+      "Pressure from gases",
+      "Too much heat",
+      "Earth\u2019s anger"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do we have fingerprints?",
+    "options": [
+      "Grip & friction",
+      "Art",
+      "Genetics only"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do bees die after stinging?",
+    "options": [
+      "Their stinger gets stuck",
+      "They get scared",
+      "Lack of energy"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why is the sky blue?",
+    "options": [
+      "Scattering of sunlight",
+      "Reflection of ocean",
+      "Air color"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do ears get red when embarrassed?",
+    "options": [
+      "Increased blood flow",
+      "Blushing",
+      "Air pressure"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do whales sing?",
+    "options": [
+      "To communicate",
+      "To entertain",
+      "To scare sharks"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do humans laugh?",
+    "options": [
+      "Social bonding",
+      "To show teeth",
+      "To release air"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does bread rise?",
+    "options": [
+      "Yeast produces gas",
+      "Heat expands it",
+      "It soaks up water"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do your teeth chatter in the cold?",
+    "options": [
+      "Muscle reflex to generate heat",
+      "Fear",
+      "Shivering jaw"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do bats hang upside down?",
+    "options": [
+      "Easier takeoff",
+      "Avoid predators",
+      "Better sleep"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does your voice sound different in recordings?",
+    "options": [
+      "Bone conduction",
+      "Mic quality",
+      "Wrong pitch"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do birds sing in the morning?",
+    "options": [
+      "Mark territory & attract mates",
+      "Stretching vocals",
+      "Alert others"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does static shock happen?",
+    "options": [
+      "Electrons transfer",
+      "Too much energy",
+      "Touching metal"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does your face turn red during exercise?",
+    "options": [
+      "Increased blood flow",
+      "Heat",
+      "Lack of oxygen"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do dogs pant?",
+    "options": [
+      "To cool down",
+      "To bark better",
+      "They\u2019re tired"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do stars seem to move across the sky?",
+    "options": [
+      "Earth's rotation",
+      "Stars move",
+      "Air flow"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do balloons pop in the sun?",
+    "options": [
+      "Air expands",
+      "They get scared",
+      "They dry out"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do astronauts float in space?",
+    "options": [
+      "Microgravity",
+      "No air",
+      "Low oxygen"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do trees have rings?",
+    "options": [
+      "Record yearly growth",
+      "To look pretty",
+      "Water absorption"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does metal feel colder than wood?",
+    "options": [
+      "Conducts heat faster",
+      "It's wet",
+      "Metal has no insulation"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do bruises change color?",
+    "options": [
+      "Blood breakdown",
+      "Dirt under skin",
+      "Poor circulation"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do phones overheat?",
+    "options": [
+      "Battery drain & processor heat",
+      "Apps",
+      "Signals"
+    ],
+    "answer": 0
+  }
+];
+
+const questions_who_am_i_stem_edition=[
+  {
+    "q": "I turn dirt and blueprints into highways and stadiums \u2014 if you\u2019ve walked or driven on it, I probably helped build it. Who am I?",
+    "options": [
+      "Architect",
+      "Civil Engineer",
+      "Surveyor"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I study ecosystems, from ants in your backyard to rainforests buzzing with life. Who am I?",
+    "options": [
+      "Chemist",
+      "Ecologist",
+      "Physicist"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I build apps, games, and tools that run the world \u2014 all using code. Who am I?",
+    "options": [
+      "Data Analyst",
+      "Software Engineer",
+      "UX Designer"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I invent the materials that make fireworks sparkle, ice cream smoother, and rockets fly. Who am I?",
+    "options": [
+      "Physicist",
+      "Chemist",
+      "Biologist"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "If it moves, heats, cools, or spins \u2014 I probably designed it. Who am I?",
+    "options": [
+      "Mechanical Engineer",
+      "Electrical Engineer",
+      "Technician"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I stare at the night sky, but I\u2019m actually hunting the secrets of time and space. Who am I?",
+    "options": [
+      "Astronomer",
+      "Astrologer",
+      "Astrophysicist"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I predict the future using numbers \u2014 from who\u2019ll win the next game to how fast diseases spread. Who am I?",
+    "options": [
+      "Statistician",
+      "Accountant",
+      "Economist"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I unlock the rules of the universe \u2014 from how you fall to why stars explode. Who am I?",
+    "options": [
+      "Physicist",
+      "Chemist",
+      "Engineer"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I guard the digital gates and chase hackers through code. Who am I?",
+    "options": [
+      "Software Developer",
+      "Cybersecurity Analyst",
+      "Network Engineer"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I map the human brain and try to understand how thoughts are born. Who am I?",
+    "options": [
+      "Psychologist",
+      "Sociologist",
+      "Neuroscientist"
+    ],
+    "answer": 2
+  },
+  {
+    "q": "I use lasers and satellites to measure the Earth down to the centimeter. Who am I?",
+    "options": [
+      "Surveyor",
+      "Urban Planner",
+      "Architect"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I sketch skyscrapers, design cozy homes, and think in blueprints and 3D. Who am I?",
+    "options": [
+      "Civil Engineer",
+      "Interior Designer",
+      "Architect"
+    ],
+    "answer": 2
+  },
+  {
+    "q": "I fuse biology with machines to build tools that heal, scan, and save lives. Who am I?",
+    "options": [
+      "Biomedical Engineer",
+      "Doctor",
+      "Pharmacist"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I make sure websites, apps, and gadgets are so easy to use, they feel like magic. Who am I?",
+    "options": [
+      "UX Designer",
+      "Graphic Designer",
+      "Engineer"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I design tech and spaces to fit how your body and brain actually work. Who am I?",
+    "options": [
+      "Ergonomist",
+      "UI Designer",
+      "Data Scientist"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I read rocks like time machines \u2014 decoding ancient earthquakes and volcanoes. Who am I?",
+    "options": [
+      "Meteorologist",
+      "Geologist",
+      "Physicist"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I help robots see, so they don\u2019t just move \u2014 they understand the world. Who am I?",
+    "options": [
+      "Computer Vision Engineer",
+      "Mechanic",
+      "Network Technician"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I use weather data to warn pilots, farmers, and festival-goers what\u2019s coming next. Who am I?",
+    "options": [
+      "Meteorologist",
+      "Environmental Scientist",
+      "Astronomer"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I bring power to the people \u2014 literally \u2014 by wiring the world. Who am I?",
+    "options": [
+      "Electrician",
+      "Electrical Engineer",
+      "Technician"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I make video games feel real by simulating gravity, friction, and explosions. Who am I?",
+    "options": [
+      "Animator",
+      "Game Designer",
+      "Physics Programmer"
+    ],
+    "answer": 2
+  },
+  {
+    "q": "I study bugs \u2014 not the ones in code, but the real ones that crawl and fly. Who am I?",
+    "options": [
+      "Zoologist",
+      "Entomologist",
+      "Biologist"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I explore the code written in your DNA to find hidden instructions. Who am I?",
+    "options": [
+      "Biochemist",
+      "Geneticist",
+      "Microbiologist"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I test how medicines move, mix, and react inside your body. Who am I?",
+    "options": [
+      "Pharmacologist",
+      "Pharmacist",
+      "Toxicologist"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I don\u2019t build machines \u2014 I make sure people, money, and tech play nicely together. Who am I?",
+    "options": [
+      "Project Manager",
+      "Product Owner",
+      "Agile Coach"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I crunch numbers so coaches know who to play and when \u2014 stats are my playbook. Who am I?",
+    "options": [
+      "Statistician",
+      "Sports Analyst",
+      "Coach"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I train machines to recognize your face, recommend your next video, or drive your car. Who am I?",
+    "options": [
+      "AI Researcher",
+      "Programmer",
+      "Data Entry Clerk"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I chase outbreaks, map viruses, and help stop the next pandemic. Who am I?",
+    "options": [
+      "Pathologist",
+      "Epidemiologist",
+      "Virologist"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I tweak factories like puzzles \u2014 making them faster, safer, and cleaner. Who am I?",
+    "options": [
+      "Industrial Engineer",
+      "Mechanical Engineer",
+      "Technician"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I turn blueprints into rockets and dreams into space missions. Who am I?",
+    "options": [
+      "Astrobiologist",
+      "Aerospace Engineer",
+      "Astronaut"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I zoom into invisible worlds to outsmart bacteria and viruses before they outsmart us. Who am I?",
+    "options": [
+      "Microbiologist",
+      "Geneticist",
+      "Biologist"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I design rides that flip, twist, and wow \u2014 but are secretly all about physics. Who am I?",
+    "options": [
+      "Structural Engineer",
+      "Mechanical Engineer",
+      "Theme Park Engineer"
+    ],
+    "answer": 2
+  },
+  {
+    "q": "I predict financial doom and success \u2014 using nothing but numbers. Who am I?",
+    "options": [
+      "Economist",
+      "Actuary",
+      "Financial Analyst"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I simulate earthquakes, crashes, and explosions \u2014 safely, with math. Who am I?",
+    "options": [
+      "CAD Technician",
+      "3D Artist",
+      "Simulation Engineer"
+    ],
+    "answer": 2
+  },
+  {
+    "q": "I read satellites like books to monitor cities, forests, and disasters. Who am I?",
+    "options": [
+      "Cartographer",
+      "GIS Analyst",
+      "Astronomer"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I study fossils to tell ancient stories \u2014 from dinosaurs to human ancestors. Who am I?",
+    "options": [
+      "Geologist",
+      "Paleontologist",
+      "Archaeologist"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I design eco-friendly systems so buildings waste less and save more. Who am I?",
+    "options": [
+      "Green Architect",
+      "Civil Engineer",
+      "Environmental Engineer"
+    ],
+    "answer": 2
+  },
+  {
+    "q": "I build explosions, weather, and monsters \u2014 all in CGI. Who am I?",
+    "options": [
+      "Visual Effects Artist",
+      "Animator",
+      "CGI Developer"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I make sure your tech doesn\u2019t just work \u2014 it works for *you*. Who am I?",
+    "options": [
+      "UX Researcher",
+      "Ergonomist",
+      "App Developer"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I dream up questions no one\u2019s asked \u2014 and then run experiments to answer them. Who am I?",
+    "options": [
+      "Research Scientist",
+      "Lecturer",
+      "Technician"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I fly drones over farms and crunch crop data to feed the future. Who am I?",
+    "options": [
+      "Agricultural Technologist",
+      "Drone Pilot",
+      "Botanist"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I invent materials that are stronger than steel but lighter than feathers. Who am I?",
+    "options": [
+      "Materials Scientist",
+      "Mechanical Engineer",
+      "Chemist"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I tag animals, track their travel, and protect their wild paths. Who am I?",
+    "options": [
+      "Ecologist",
+      "Wildlife Biologist",
+      "Zoologist"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I dive deep \u2014 not into oceans, but into the math behind waves and sea life. Who am I?",
+    "options": [
+      "Marine Biologist",
+      "Oceanographer",
+      "Fisheries Scientist"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I teach computers to understand what you say \u2014 even slang. Who am I?",
+    "options": [
+      "Linguist",
+      "AI Researcher",
+      "NLP Scientist"
+    ],
+    "answer": 2
+  },
+  {
+    "q": "I build tech that leaves Earth \u2014 satellites, rockets, and space labs. Who am I?",
+    "options": [
+      "Mechanical Engineer",
+      "Aerospace Engineer",
+      "Astronaut"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I build gadgets that go on wrists, into shoes, or under skin to track your health. Who am I?",
+    "options": [
+      "Biomedical Engineer",
+      "Electronics Technician",
+      "Industrial Designer"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I turn toxic messes into clean water and breathable air. Who am I?",
+    "options": [
+      "Environmental Chemist",
+      "Microbiologist",
+      "Waste Manager"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I create the scanners that peek inside your body without making a cut. Who am I?",
+    "options": [
+      "Radiologist",
+      "Biomedical Engineer",
+      "Surgeon"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "I build machines so small they could swim through your veins. Who am I?",
+    "options": [
+      "Nanotechnologist",
+      "Lab Technician",
+      "Robotics Engineer"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "I dig up ancient tools and bones to piece together human history. Who am I?",
+    "options": [
+      "Paleontologist",
+      "Anthropologist",
+      "Archaeologist"
+    ],
+    "answer": 2
+  }
+];
+
+const questions_she_did_what=[
+  {
+    "q": "Who was the first woman to win a Nobel Prize?",
+    "options": [
+      "Marie Curie",
+      "Ada Lovelace",
+      "Jane Goodall"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What groundbreaking tech did Hedy Lamarr co-invent?",
+    "options": [
+      "Frequency hopping",
+      "Wi-Fi",
+      "Touchscreen"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Ada Lovelace is considered the first computer programmer.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which female scientist discovered radioactivity?",
+    "options": [
+      "Marie Curie",
+      "Rosalind Franklin",
+      "Lise Meitner"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who was the first female African-American astronaut?",
+    "options": [
+      "Mae Jemison",
+      "Valentina Tereshkova",
+      "Katherine Johnson"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was Katherine Johnson known for?",
+    "options": [
+      "Calculating spaceflight trajectories",
+      "Inventing the stethoscope",
+      "Building rockets"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which woman led the way in DNA structure discovery?",
+    "options": [
+      "Rosalind Franklin",
+      "Barbara McClintock",
+      "Dorothy Hodgkin"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who founded the environmental Green Belt Movement?",
+    "options": [
+      "Wangari Maathai",
+      "Jane Goodall",
+      "Greta Thunberg"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who was the first woman in space?",
+    "options": [
+      "Valentina Tereshkova",
+      "Sally Ride",
+      "Mae Jemison"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who won two Nobel Prizes in two different sciences?",
+    "options": [
+      "Marie Curie",
+      "Dorothy Hodgkin",
+      "Lise Meitner"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Lise Meitner helped explain nuclear fission.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which woman helped launch Apollo 11 software?",
+    "options": [
+      "Margaret Hamilton",
+      "Grace Hopper",
+      "Mary Jackson"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who coined the term \u2018bug\u2019 in computing?",
+    "options": [
+      "Grace Hopper",
+      "Ada Lovelace",
+      "Margaret Hamilton"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who was the first woman to head a major tech company?",
+    "options": [
+      "Carly Fiorina",
+      "Marissa Mayer",
+      "Susan Wojcicki"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who developed a computer language called COBOL?",
+    "options": [
+      "Grace Hopper",
+      "Ada Lovelace",
+      "Linus Torvalds"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was Jane Goodall famous for?",
+    "options": [
+      "Chimpanzee research",
+      "Marine biology",
+      "Rocket science"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who was the first woman to win Fields Medal in mathematics?",
+    "options": [
+      "Maryam Mirzakhani",
+      "Emmy Noether",
+      "Sophie Germain"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who built the first compiler for a computer?",
+    "options": [
+      "Grace Hopper",
+      "Margaret Hamilton",
+      "Ada Lovelace"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which female engineer worked on the space shuttle?",
+    "options": [
+      "Judith Resnik",
+      "Valentina Tereshkova",
+      "Mae Jemison"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Ada Lovelace worked on Charles Babbage's engine.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who was the first African-American woman in STEM on a postage stamp?",
+    "options": [
+      "Dorothy Vaughan",
+      "Katherine Johnson",
+      "Mary Jackson"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which physicist's photo was famously left out of DNA credit?",
+    "options": [
+      "Rosalind Franklin",
+      "Marie Curie",
+      "Dorothy Hodgkin"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which Kenyan woman became a Nobel Laureate for her activism?",
+    "options": [
+      "Wangari Maathai",
+      "Ellen Johnson Sirleaf",
+      "Ngozi Okonjo-Iweala"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which female inventor created a solar-powered water purifier?",
+    "options": [
+      "Eden Full",
+      "Wangari Maathai",
+      "Stephanie Kwolek"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who invented Kevlar, used in bulletproof vests?",
+    "options": [
+      "Stephanie Kwolek",
+      "Marie Curie",
+      "Hedy Lamarr"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Women were among early computer programmers.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who was the first woman to fly solo across the Atlantic?",
+    "options": [
+      "Amelia Earhart",
+      "Bessie Coleman",
+      "Valentina Tereshkova"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who designed computer software before computers existed?",
+    "options": [
+      "Ada Lovelace",
+      "Grace Hopper",
+      "Alan Turing"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who worked at NASA calculating trajectories for Mercury missions?",
+    "options": [
+      "Katherine Johnson",
+      "Sally Ride",
+      "Jane Goodall"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What did Ellen Swallow Richards pioneer?",
+    "options": [
+      "Home economics and environmental science",
+      "Genetics",
+      "Space travel"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who became Google's first female engineer?",
+    "options": [
+      "Marissa Mayer",
+      "Sheryl Sandberg",
+      "Susan Wojcicki"
+    ],
+    "answer": 0
+  },
+
+  {
+    "q": "Who led programming of NASA\u2019s Apollo guidance system?",
+    "options": [
+      "Margaret Hamilton",
+      "Grace Hopper",
+      "Ada Lovelace"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which woman won Nobel for environmental activism?",
+    "options": [
+      "Wangari Maathai",
+      "Jane Goodall",
+      "Rachel Carson"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What does the Grace Hopper Celebration honor?",
+    "options": [
+      "Women in computing",
+      "Medical research",
+      "Astronomy discoveries"
+    ],
+    "answer": 0
+  },
+
+  {
+    "q": "Which woman helped crack Nazi codes in WWII?",
+    "options": [
+      "Joan Clarke",
+      "Rosalind Franklin",
+      "Margaret Hamilton"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who was the first woman Nobel winner in economics?",
+    "options": [
+      "Elinor Ostrom",
+      "Amartya Sen",
+      "Janet Yellen"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Women were \u2018computers\u2019 before machines were.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who led climate change advocacy with \u2018Fridays for Future\u2019?",
+    "options": [
+      "Greta Thunberg",
+      "Jane Goodall",
+      "Wangari Maathai"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which woman leads AI ethics work today?",
+    "options": [
+      "Timnit Gebru",
+      "Joy Buolamwini",
+      "Fei-Fei Li"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Who was the first woman to head MIT\u2019s CS and AI Lab?",
+    "options": [
+      "Daniela Rus",
+      "Shafi Goldwasser",
+      "Lila Ibrahim"
+    ],
+    "answer": 0
+  },
+
+  {
+    "q": "Which woman coded the first compiler language?",
+    "options": [
+      "Grace Hopper",
+      "Ada Lovelace",
+      "Margaret Hamilton"
+    ],
+    "answer": 0
+  },
+
+  {
+    "q": "Who co-founded Girls Who Code?",
+    "options": [
+      "Reshma Saujani",
+      "Susan Wojcicki",
+      "Marissa Mayer"
+    ],
+    "answer": 0
+  },
+];
+
+const questions_sci_fi_or_sci_fact=[
+  {
+    "q": "Can sound travel in space?",
+    "options": [
+      "No",
+      "Yes",
+      "Only near stars"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Have humans landed on Mars?",
+    "options": [
+      "No",
+      "Yes",
+      "Almost"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can plants grow on the Moon with soil?",
+    "options": [
+      "No",
+      "Yes",
+      "Only mushrooms"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is time travel possible right now?",
+    "options": [
+      "No",
+      "Yes",
+      "Only in fiction"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do astronauts grow taller in space?",
+    "options": [
+      "Yes",
+      "No",
+      "Only if they exercise"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can black holes suck in light?",
+    "options": [
+      "Yes",
+      "No",
+      "Only stars"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can robots learn on their own?",
+    "options": [
+      "Yes",
+      "No",
+      "Only if programmed daily"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Are invisibility cloaks real?",
+    "options": [
+      "Kind of",
+      "No",
+      "Yes, widely used"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: You age slower in space.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is teleportation real science?",
+    "options": [
+      "Yes, in theory",
+      "No",
+      "It exists now"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Are laser weapons used in real combat?",
+    "options": [
+      "Not yet",
+      "Yes",
+      "No"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is it true that aliens have visited Earth?",
+    "options": [
+      "No confirmed proof",
+      "Yes",
+      "Absolutely not"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What does NASA stand for?",
+    "options": [
+      "National Aeronautics and Space Administration",
+      "New Alien Studies Association",
+      "Navigation Air and Space Agency"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can people control computers with their brain?",
+    "options": [
+      "Yes",
+      "No",
+      "Only mice"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do wormholes exist in theory?",
+    "options": [
+      "Yes",
+      "No",
+      "Only in Star Trek"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Are AI models able to write poetry?",
+    "options": [
+      "Yes",
+      "No",
+      "Only music"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can metal remember shapes?",
+    "options": [
+      "Yes",
+      "No",
+      "Only wires"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do jetpacks really work?",
+    "options": [
+      "Yes, for short flights",
+      "No",
+      "Only in cartoons"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can animals be cloned?",
+    "options": [
+      "Yes",
+      "No",
+      "Only dogs"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do flying cars exist?",
+    "options": [
+      "Yes, in prototypes",
+      "No",
+      "Yes, in every city"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Are solar panels powered by moonlight?",
+    "options": [
+      "No",
+      "Yes",
+      "Only partially"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can robots do surgery?",
+    "options": [
+      "Yes",
+      "No",
+      "Only in games"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Are nanobots used in medicine?",
+    "options": [
+      "Yes, in early stages",
+      "No",
+      "Only in sci-fi"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can we create artificial organs?",
+    "options": [
+      "Yes",
+      "No",
+      "Only lungs"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is it possible to live on the Moon right now?",
+    "options": [
+      "No",
+      "Yes",
+      "Only bugs"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Are asteroid mining plans real?",
+    "options": [
+      "Yes",
+      "No",
+      "Only in Marvel"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can a human lift a car with an exosuit?",
+    "options": [
+      "Yes",
+      "No",
+      "Only in cartoons"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Dinosaurs could be brought back.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can computers learn from experience?",
+    "options": [
+      "Yes",
+      "No",
+      "Only if supervised"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is brain uploading a real technology?",
+    "options": [
+      "Not yet",
+      "Yes",
+      "Only sci-fi"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do lasers bounce off mirrors?",
+    "options": [
+      "Yes",
+      "No",
+      "Only green ones"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can you 3D print human tissue?",
+    "options": [
+      "Yes",
+      "No",
+      "Only plastic"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can a magnetic field make you float?",
+    "options": [
+      "Yes",
+      "No",
+      "Only metal objects"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do people live on the International Space Station?",
+    "options": [
+      "Yes",
+      "No",
+      "Only robots"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can satellites be hacked?",
+    "options": [
+      "Yes",
+      "No",
+      "Only military ones"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is there gravity in space?",
+    "options": [
+      "Yes, just less",
+      "No",
+      "Only near stars"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is light the fastest thing in the universe?",
+    "options": [
+      "Yes",
+      "No",
+      "Gravity is faster"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can some animals survive in space?",
+    "options": [
+      "Yes, like tardigrades",
+      "No",
+      "Only humans"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Are drones used in farming?",
+    "options": [
+      "Yes",
+      "No",
+      "Only flying cars"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can artificial intelligence create music?",
+    "options": [
+      "Yes",
+      "No",
+      "Only jazz"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: There are AI-generated paintings.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can virtual reality be used to train doctors?",
+    "options": [
+      "Yes",
+      "No",
+      "Only pilots"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do sci-fi movies sometimes inspire inventions?",
+    "options": [
+      "Yes",
+      "No",
+      "Only books do"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can a robot pass a driving test?",
+    "options": [
+      "In controlled tests",
+      "No",
+      "Only cartoons"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do people have microchips under their skin?",
+    "options": [
+      "Yes",
+      "No",
+      "Only dogs"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can we detect earthquakes using satellites?",
+    "options": [
+      "Yes",
+      "No",
+      "Only by sound"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can a robot paint a masterpiece?",
+    "options": [
+      "It depends",
+      "Yes",
+      "No"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do we have telescopes that see distant galaxies?",
+    "options": [
+      "Yes",
+      "No",
+      "Only photos"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can AI beat humans at chess?",
+    "options": [
+      "Yes",
+      "No",
+      "Only kids"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is it possible to grow meat without animals?",
+    "options": [
+      "Yes",
+      "No",
+      "Only in cartoons"
+    ],
+    "answer": 0
+  }
+];
+
+const questions_retro_tech_quest=[
+  {
+    "q": "What device did people use to play music before CDs?",
+    "options": [
+      "Cassette tapes",
+      "USB drives",
+      "DVDs"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which storage medium came before floppy disks?",
+    "options": [
+      "Punch cards",
+      "CD-ROMs",
+      "Hard drives"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is a Walkman used for?",
+    "options": [
+      "Playing cassette tapes",
+      "Watching videos",
+      "Listening to radio"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What did early TVs use to display images?",
+    "options": [
+      "Cathode ray tubes",
+      "LEDs",
+      "Plasma screens"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which gaming console did Nintendo release in the 1980s?",
+    "options": [
+      "NES",
+      "PlayStation",
+      "Sega Genesis"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What replaced VHS tapes?",
+    "options": [
+      "DVDs",
+      "Cassette tapes",
+      "CDs"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which device had a rotary dial?",
+    "options": [
+      "Old telephones",
+      "Radios",
+      "Typewriters"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is a pager used for?",
+    "options": [
+      "Receiving short messages",
+      "Measuring steps",
+      "Recording audio"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was the original use of floppy disks?",
+    "options": [
+      "Storing data",
+      "Playing music",
+      "Watching movies"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What computer had a green-on-black display?",
+    "options": [
+      "IBM PC",
+      "MacBook",
+      "Surface Pro"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which format came after cassette tapes?",
+    "options": [
+      "CDs",
+      "Vinyl records",
+      "Blu-rays"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which phone brand was famous for Snake game?",
+    "options": [
+      "Nokia",
+      "Samsung",
+      "Sony"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What did film cameras need to take photos?",
+    "options": [
+      "Rolls of film",
+      "SD cards",
+      "USBs"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is the term for a phone with no internet?",
+    "options": [
+      "Landline",
+      "Smartphone",
+      "Satellite phone"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which operating system was popular in the 90s?",
+    "options": [
+      "Windows 95",
+      "macOS Ventura",
+      "Linux Mint"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was the original Mac computer called?",
+    "options": [
+      "Macintosh",
+      "Mac Mini",
+      "Mac Pro"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was the common display resolution in the 80s?",
+    "options": [
+      "640x480",
+      "1920x1080",
+      "800x600"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which storage medium was used in arcade machines?",
+    "options": [
+      "ROM chips",
+      "SD cards",
+      "Cloud storage"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What does VHS stand for?",
+    "options": [
+      "Video Home System",
+      "Virtual Hardware Storage",
+      "Visual Handheld System"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was a joystick used for?",
+    "options": [
+      "Controlling video games",
+      "Typing",
+      "Drawing"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which media format was used for early movies?",
+    "options": [
+      "Film reels",
+      "Blu-ray",
+      "Flash drives"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is a CRT monitor?",
+    "options": [
+      "Cathode Ray Tube",
+      "Compact Rechargeable Terminal",
+      "Color Render Technology"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which company made the first portable music player?",
+    "options": [
+      "Sony",
+      "Apple",
+      "Panasonic"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is a Game Boy?",
+    "options": [
+      "Handheld game console",
+      "Old phone",
+      "Typewriter"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was the function of a beeper?",
+    "options": [
+      "Alert someone via message",
+      "Make calls",
+      "Play music"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which media format stored video before DVDs?",
+    "options": [
+      "VHS",
+      "CD-ROM",
+      "Cassette"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was used to type documents before computers?",
+    "options": [
+      "Typewriter",
+      "Fax",
+      "Scanner"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is dial-up used for?",
+    "options": [
+      "Internet connection",
+      "Calling overseas",
+      "Text messaging"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which gadget had spinning disks to store data?",
+    "options": [
+      "Hard drives",
+      "Modems",
+      "Monitors"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What does \u20188-bit\u2019 refer to in gaming?",
+    "options": [
+      "Graphics and data width",
+      "Game time",
+      "Color count"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was the use of an overhead projector?",
+    "options": [
+      "Projecting transparencies",
+      "Copying papers",
+      "Listening to music"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What replaced film reels in cinemas?",
+    "options": [
+      "Digital projectors",
+      "TVs",
+      "Record players"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is a ZIP drive?",
+    "options": [
+      "Old data storage device",
+      "Vacuum cleaner",
+      "Type of printer"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What did early modems sound like?",
+    "options": [
+      "Static beeping",
+      "Silence",
+      "Buzzing music"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was an early way to copy documents?",
+    "options": [
+      "Carbon paper",
+      "Laser printer",
+      "Scanner"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was the first web browser called?",
+    "options": [
+      "WorldWideWeb",
+      "Explorer",
+      "Chrome"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which TV had no remote?",
+    "options": [
+      "Black and white TVs",
+      "Smart TVs",
+      "LED TVs"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was a Polaroid known for?",
+    "options": [
+      "Instant photos",
+      "Video calls",
+      "Music playback"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was the purpose of a fax machine?",
+    "options": [
+      "Sending paper over phone lines",
+      "Playing music",
+      "Sending money"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is a dot matrix printer?",
+    "options": [
+      "Old printer with tiny pins",
+      "3D printer",
+      "Scanner"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What did \u2018rewind\u2019 refer to?",
+    "options": [
+      "Going back on a tape",
+      "Scrolling up",
+      "Turning a page"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What year was the first mobile phone released?",
+    "options": [
+      "1983",
+      "1995",
+      "1975"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which company made the first personal computer?",
+    "options": [
+      "IBM",
+      "Apple",
+      "Microsoft"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was used to play music in cars in the 90s?",
+    "options": [
+      "Cassette player",
+      "CD changer",
+      "MP3 dock"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What was a LaserDisc?",
+    "options": [
+      "Large video disc",
+      "CD burner",
+      "Sound amplifier"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What tech used light pens?",
+    "options": [
+      "Early computers",
+      "Microwaves",
+      "Calculators"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is a floppy disk\u2019s storage size?",
+    "options": [
+      "1.44 MB",
+      "10 MB",
+      "50 MB"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is a telephone switchboard?",
+    "options": [
+      "Manual phone connector",
+      "Music mixer",
+      "Gaming console"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What tech preceded Bluetooth?",
+    "options": [
+      "Infrared",
+      "Radio",
+      "Wi-Fi"
+    ],
+    "answer": 0
+  }
+];
+
+
+const questions_myth_smashers=[
+  {
+    "q": "True or False: Bats always fly into people\u2019s hair.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can lightning strike the same place twice?",
+    "options": [
+      "Yes",
+      "No",
+      "Only in mountains"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: We only use 10% of our brains.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do chameleons change color to match backgrounds?",
+    "options": [
+      "No, it's for communication",
+      "Yes, to blend in",
+      "Only when scared"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can you see the Great Wall of China from space?",
+    "options": [
+      "No",
+      "Yes",
+      "Only with a telescope"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Hair grows faster if you cut it more often.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Does cracking your knuckles cause arthritis?",
+    "options": [
+      "No",
+      "Yes",
+      "Only in old age"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can goldfish really only remember for 3 seconds?",
+    "options": [
+      "No",
+      "Yes",
+      "Only in dirty water"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Humans swallow spiders in their sleep.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is the tongue divided into taste zones?",
+    "options": [
+      "No",
+      "Yes",
+      "Only in children"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Vaccines cause autism.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Does shaving make hair grow back thicker?",
+    "options": [
+      "No",
+      "Yes",
+      "Only leg hair"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can bulls see red?",
+    "options": [
+      "No, they react to motion",
+      "Yes, they hate red",
+      "Only under sunlight"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Lightning never strikes the same tree twice.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do humans have more than 5 senses?",
+    "options": [
+      "Yes",
+      "No",
+      "Only if trained"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can you catch a cold from being cold?",
+    "options": [
+      "No, it's a virus",
+      "Yes",
+      "Only with wet hair"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is it true that sugar causes hyperactivity in kids?",
+    "options": [
+      "No",
+      "Yes",
+      "Only after candy"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: You should pee on a jellyfish sting.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do ostriches bury their heads in the sand?",
+    "options": [
+      "No",
+      "Yes",
+      "Only in fear"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Does the moon have a dark side?",
+    "options": [
+      "No, just far side",
+      "Yes",
+      "Only during eclipses"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can humans grow new brain cells?",
+    "options": [
+      "Yes",
+      "No",
+      "Only in youth"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: You can see the North Star from anywhere.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is Mount Everest the tallest mountain from base to peak?",
+    "options": [
+      "No, Mauna Kea is taller",
+      "Yes",
+      "Only above sea level"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Touching a baby bird makes its mother abandon it.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do camels store water in their humps?",
+    "options": [
+      "No, they store fat",
+      "Yes",
+      "Only during drought"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can you sneeze with your eyes open?",
+    "options": [
+      "Yes, but it\u2019s hard",
+      "No",
+      "Only during allergy"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: The color red makes bulls angry.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is yawning only a sign of tiredness?",
+    "options": [
+      "No, also empathy",
+      "Yes",
+      "Only in the morning"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Does your heart stop when you sneeze?",
+    "options": [
+      "No",
+      "Yes",
+      "Just slows down"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Lightning is hotter than the sun.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can sharks get cancer?",
+    "options": [
+      "Yes",
+      "No",
+      "Only in captivity"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do bats drink blood?",
+    "options": [
+      "Some do",
+      "None do",
+      "All do"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do carrots improve your night vision?",
+    "options": [
+      "No, it\u2019s a myth",
+      "Yes, always",
+      "Only if raw"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: If you drop a coin from a tall building, it can kill.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can you use only one side of your brain?",
+    "options": [
+      "No, both sides work together",
+      "Yes",
+      "Only in sleep"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is the five-second rule hygienic?",
+    "options": [
+      "No, bacteria is instant",
+      "Yes, sometimes",
+      "Only on clean floors"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can you touch baby birds?",
+    "options": [
+      "Yes",
+      "No",
+      "Only if gloved"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Humans glow in the dark.",
+    "options": [
+      "True (but not visibly)",
+      "False",
+      "Only when scared"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Does chewing gum stay in your stomach for 7 years?",
+    "options": [
+      "No",
+      "Yes",
+      "Only mint gum"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can penguins fly?",
+    "options": [
+      "No",
+      "Yes",
+      "Only in water"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is glass a slow-flowing liquid?",
+    "options": [
+      "No, it's solid",
+      "Yes",
+      "Only old glass"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Earth is closer to the sun in summer.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do humans have unique tongue prints?",
+    "options": [
+      "Yes",
+      "No",
+      "Only twins"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Is cracking joints bad for you?",
+    "options": [
+      "No, it's harmless",
+      "Yes",
+      "Only knees"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do fish have short memory?",
+    "options": [
+      "No, many remember for months",
+      "Yes",
+      "Only goldfish"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do vaccines work instantly?",
+    "options": [
+      "No, they take time",
+      "Yes",
+      "Only flu shots"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Humans explode in space.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do you lose most heat through your head?",
+    "options": [
+      "No, it's equal",
+      "Yes",
+      "Only in cold weather"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Can bananas grow on trees?",
+    "options": [
+      "No, on giant herbs",
+      "Yes",
+      "Only in tropics"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Do frogs cause warts?",
+    "options": [
+      "No, it\u2019s a virus",
+      "Yes",
+      "Only toads"
+    ],
+    "answer": 0
+  }
+];
+
+
+const questions_math_magic = [
+  {
+    "q": "True or False: You use logarithms every time you adjust your phone's brightness.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What shape is used in pizza slicing and also describes angles in radians?",
+    "options": [
+      "Circle",
+      "Sector",
+      "Arc"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "Why does a car speedometer go up in even numbers?",
+    "options": [
+      "Maths is base-10",
+      "To simplify manufacturing",
+      "Because of symmetry"
+    ],
+    "answer": 2
+  },
+  {
+    "q": "What does your microwave timer use to measure time?",
+    "options": [
+      "Counting cycles of electricity",
+      "Tiny clock",
+      "Heat sensors"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do supermarkets end prices in .99?",
+    "options": [
+      "Psychological pricing",
+      "Decimal preference",
+      "Tax reasons"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s the magic number of degrees in a triangle?",
+    "options": [
+      "180",
+      "360",
+      "90"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "You can always divide a pizza slice into how many equal parts, mathematically?",
+    "options": [
+      "Infinite",
+      "6",
+      "8"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "How do bees use math?",
+    "options": [
+      "Hexagons in hives",
+      "Buzzing frequency",
+      "Flight path angles"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which number is used in music, earthquakes, and sound?",
+    "options": [
+      "Logarithms",
+      "Pi",
+      "Infinity"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s weird about zero?",
+    "options": [
+      "It's even, but not positive",
+      "It has no factors",
+      "It\u2019s negative"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does your phone battery drop faster from 20% to 0%?",
+    "options": [
+      "Exponential decay",
+      "Battery is tricking you",
+      "It's hotter at low levels"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which number is both the sum and product of the same two numbers?",
+    "options": [
+      "2",
+      "0",
+      "1"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "Why does 1+2+3+...+100 = 5050?",
+    "options": [
+      "Gauss\u2019 trick",
+      "Magic series",
+      "Symmetry"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which shape is the most efficient for packing?",
+    "options": [
+      "Hexagon",
+      "Circle",
+      "Square"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s the secret behind Instagram filters adjusting brightness?",
+    "options": [
+      "Linear algebra",
+      "Statistics",
+      "Fibonacci sequence"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Credit card interest uses exponential functions.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "If you fold a paper 42 times, how tall would it be?",
+    "options": [
+      "To the moon",
+      "1m",
+      "A house"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s the math behind selfies?",
+    "options": [
+      "Facial symmetry ratios",
+      "Camera zoom",
+      "Brightness contrast"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do buses seem to arrive in clumps?",
+    "options": [
+      "Poisson process",
+      "Drivers racing",
+      "Random chance"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: You use geometry when deciding where to park.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does doubling a recipe not always work?",
+    "options": [
+      "Nonlinear proportions",
+      "Burning risk",
+      "Volume errors"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which number do we use for exponential growth?",
+    "options": [
+      "e",
+      "\u03c0",
+      "i"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "How is GPS related to math?",
+    "options": [
+      "Triangulation",
+      "Pythagoras",
+      "Square roots"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Google was named after a math term.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which formula is behind most sports scores?",
+    "options": [
+      "Averages",
+      "Probability",
+      "Scoring equations"
+    ],
+    "answer": 1
+  },
+  {
+    "q": "Why does toast usually land butter-side down?",
+    "options": [
+      "Center of mass & rotation",
+      "Bad luck",
+      "Weight of butter"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do phones compress selfies?",
+    "options": [
+      "Math transforms (Fourier)",
+      "Battery saving",
+      "Pixel pressure"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which weird number is used in finance, biology & nature?",
+    "options": [
+      "Fibonacci",
+      "Prime",
+      "Imaginary"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why are there 360 degrees in a circle?",
+    "options": [
+      "Ancient Babylon",
+      "It divides well",
+      "It's round"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s surprising about 0.999...?",
+    "options": [
+      "It equals 1",
+      "It\u2019s a trick",
+      "It\u2019s less than 1"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "How is math behind every YouTube recommendation?",
+    "options": [
+      "Algorithms",
+      "People voting",
+      "Random picks"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s odd about house numbers on a street?",
+    "options": [
+      "Often alternate even/odd",
+      "Only odd",
+      "Always increasing"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "How do birds use geometry?",
+    "options": [
+      "Navigation and formations",
+      "Nests",
+      "Feather angles"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which branch of math helps you win at Monopoly?",
+    "options": [
+      "Probability",
+      "Algebra",
+      "Geometry"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "How does your body use math to balance?",
+    "options": [
+      "Feedback loops",
+      "Speed sensors",
+      "Vision-only"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why is soap bubbly?",
+    "options": [
+      "Surface tension and geometry",
+      "Air pressure",
+      "Water shapes"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does your shadow change shape?",
+    "options": [
+      "Sun angle and trigonometry",
+      "Time of day",
+      "Weather"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which number do you find in spirals of flowers?",
+    "options": [
+      "Fibonacci",
+      "Pi",
+      "Golden Ratio"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why are eggs oval and not round?",
+    "options": [
+      "Strength and geometry",
+      "Easier to sit on",
+      "Biology"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do mirrors flip left-right but not up-down?",
+    "options": [
+      "Human brain + geometry",
+      "It\u2019s random",
+      "Trick of light"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does slicing pizza into more pieces not make more pizza?",
+    "options": [
+      "Conservation of area",
+      "Pizza code",
+      "Size illusion"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why is the hourglass shape so strong?",
+    "options": [
+      "Symmetry and pressure distribution",
+      "Design choice",
+      "Wind balance"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do skateboard tricks need angles and velocity?",
+    "options": [
+      "Physics and vector math",
+      "Luck",
+      "Gravity power"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do elevators seem slow when you\u2019re late?",
+    "options": [
+      "Time perception bias",
+      "They are slow",
+      "Lack of math"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why are washing machine drums round?",
+    "options": [
+      "Centripetal force",
+      "Aesthetic",
+      "Water balance"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why do dice use specific dot layouts?",
+    "options": [
+      "Probability balance",
+      "Design tradition",
+      "Superstition"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s magical about the number 9 in multiplication?",
+    "options": [
+      "Digits sum to 9",
+      "It repeats",
+      "Odd power"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s the weird trick with adding all digits of any multiple of 9?",
+    "options": [
+      "They add to 9",
+      "They\u2019re divisible by 3",
+      "Always even"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why is a triangle the strongest shape?",
+    "options": [
+      "Distributes force evenly",
+      "It\u2019s pointy",
+      "Good design"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Why does milk rise when boiled?",
+    "options": [
+      "Surface tension and volume",
+      "It\u2019s thicker",
+      "Time delay"
+    ],
+    "answer": 0
+  }
+];
+
+const questions_force_of_nature=[
+  {
+    "q": "What force keeps us on the ground?",
+    "options": [
+      "Gravity",
+      "Magnetism",
+      "Friction"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What causes lightning?",
+    "options": [
+      "Electric charges in clouds",
+      "Moonlight",
+      "Wind currents"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which natural force causes tides?",
+    "options": [
+      "Gravity from the Moon",
+      "Wind",
+      "Earthquakes"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s the main energy source for weather on Earth?",
+    "options": [
+      "The Sun",
+      "The Moon",
+      "The Oceans"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which force slows a sliding object?",
+    "options": [
+      "Friction",
+      "Gravity",
+      "Electricity"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What causes wind?",
+    "options": [
+      "Air pressure differences",
+      "Sunlight",
+      "Moonlight"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which natural disaster is measured with the Richter scale?",
+    "options": [
+      "Earthquake",
+      "Tornado",
+      "Hurricane"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What gas do plants need for photosynthesis?",
+    "options": [
+      "Carbon dioxide",
+      "Oxygen",
+      "Hydrogen"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which force pulls objects toward Earth\u2019s center?",
+    "options": [
+      "Gravity",
+      "Magnetism",
+      "Inertia"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s the center of a hurricane called?",
+    "options": [
+      "Eye",
+      "Core",
+      "Heart"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which layer of Earth causes volcanoes to erupt?",
+    "options": [
+      "Mantle",
+      "Crust",
+      "Core"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which force lets birds glide?",
+    "options": [
+      "Lift",
+      "Gravity",
+      "Thrust"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What natural force makes rivers flow downhill?",
+    "options": [
+      "Gravity",
+      "Friction",
+      "Pressure"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s the tool for measuring wind speed?",
+    "options": [
+      "Anemometer",
+      "Barometer",
+      "Thermometer"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What forms when light splits in raindrops?",
+    "options": [
+      "Rainbow",
+      "Halo",
+      "Lightning"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is a tsunami usually caused by?",
+    "options": [
+      "Underwater earthquake",
+      "Storm",
+      "Volcano"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which part of a plant captures sunlight?",
+    "options": [
+      "Leaves",
+      "Roots",
+      "Stems"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Fire is a form of matter.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What natural event can cause lava flow?",
+    "options": [
+      "Volcano eruption",
+      "Earthquake",
+      "Hurricane"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What do we call frozen rain?",
+    "options": [
+      "Hail",
+      "Snow",
+      "Sleet"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What causes the northern lights?",
+    "options": [
+      "Solar particles hitting Earth",
+      "Clouds",
+      "Moonlight"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which force keeps satellites in orbit?",
+    "options": [
+      "Gravity",
+      "Magnetism",
+      "Wind"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which weather event spins in a funnel shape?",
+    "options": [
+      "Tornado",
+      "Hurricane",
+      "Cyclone"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What causes earthquakes?",
+    "options": [
+      "Tectonic plates moving",
+      "Volcanoes",
+      "Waves"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is frost made of?",
+    "options": [
+      "Frozen water vapor",
+      "Salt",
+      "Ice from rain"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which layer of the atmosphere protects us from UV?",
+    "options": [
+      "Ozone layer",
+      "Troposphere",
+      "Magnetosphere"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What causes seasons on Earth?",
+    "options": [
+      "Tilt of Earth\u2019s axis",
+      "Moon phases",
+      "Distance from Sun"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s the name of a giant sea wave?",
+    "options": [
+      "Tsunami",
+      "Breaker",
+      "Geyser"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which force causes magnets to attract?",
+    "options": [
+      "Magnetism",
+      "Gravity",
+      "Friction"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What helps plants grow toward sunlight?",
+    "options": [
+      "Phototropism",
+      "Capillarity",
+      "Respiration"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Air has weight.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What happens to most metals when heated?",
+    "options": [
+      "They expand",
+      "They shrink",
+      "They explode"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is the force that resists motion in water?",
+    "options": [
+      "Drag",
+      "Lift",
+      "Thrust"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s the energy from the Earth\u2019s heat called?",
+    "options": [
+      "Geothermal",
+      "Nuclear",
+      "Solar"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What happens when cold and warm air meet?",
+    "options": [
+      "Storms",
+      "Rainbows",
+      "Droughts"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What instrument measures air pressure?",
+    "options": [
+      "Barometer",
+      "Thermometer",
+      "Hygrometer"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which force helps planes take off?",
+    "options": [
+      "Lift",
+      "Drag",
+      "Gravity"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which natural force forms sand dunes?",
+    "options": [
+      "Wind",
+      "Water",
+      "Earthquakes"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which simple machine is used in a seesaw?",
+    "options": [
+      "Lever",
+      "Pulley",
+      "Wedge"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What natural phenomenon can split trees?",
+    "options": [
+      "Lightning",
+      "Earthquake",
+      "Wind"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What causes ocean currents?",
+    "options": [
+      "Wind and Earth\u2019s rotation",
+      "Volcanoes",
+      "Tides"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is erosion caused by?",
+    "options": [
+      "Wind and water",
+      "Sunlight",
+      "Moonlight"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What natural force causes landslides?",
+    "options": [
+      "Gravity",
+      "Wind",
+      "Earthquakes"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is static electricity?",
+    "options": [
+      "Buildup of electric charge",
+      "Moving electrons",
+      "Heat discharge"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What natural resource powers wind turbines?",
+    "options": [
+      "Wind",
+      "Water",
+      "Sun"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What part of a wave is the highest point?",
+    "options": [
+      "Crest",
+      "Trough",
+      "Amplitude"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which gas do we breathe to stay alive?",
+    "options": [
+      "Oxygen",
+      "Carbon Dioxide",
+      "Nitrogen"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which natural force bends light?",
+    "options": [
+      "Refraction",
+      "Reflection",
+      "Fusion"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is the pullback force in a stretched rubber band?",
+    "options": [
+      "Tension",
+      "Gravity",
+      "Friction"
+    ],
+    "answer": 0
+  }
+];
+
+const questions_beastly_secrets = [
+  {
+    "q": "Which animal can regrow its limbs?",
+    "options": [
+      "Starfish",
+      "Frog",
+      "Tiger"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which bird can fly backwards?",
+    "options": [
+      "Hummingbird",
+      "Eagle",
+      "Parrot"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What do male seahorses do that's unusual?",
+    "options": [
+      "They give birth",
+      "They sing",
+      "They change color"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which mammal lays eggs?",
+    "options": [
+      "Platypus",
+      "Koala",
+      "Kangaroo"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which animal has blue blood?",
+    "options": [
+      "Octopus",
+      "Cat",
+      "Bear"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Snails can sleep for years.",
+    "options": [
+      "True",
+      "False"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which creature glows in the dark naturally?",
+    "options": [
+      "Firefly",
+      "Spider",
+      "Bee"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which animal can survive space?",
+    "options": [
+      "Tardigrade",
+      "Lizard",
+      "Worm"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which fish can walk on land?",
+    "options": [
+      "Mudskipper",
+      "Goldfish",
+      "Shark"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which animal never sleeps?",
+    "options": [
+      "Bullfrog",
+      "Snake",
+      "Bat"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which animal's heart is in its head?",
+    "options": [
+      "Shrimp",
+      "Crab",
+      "Ant"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "How do penguins propose?",
+    "options": [
+      "With a pebble",
+      "With a song",
+      "By dancing"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Owls can turn their heads all the way around.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What do elephants use to cool off?",
+    "options": [
+      "Ears",
+      "Trunk",
+      "Feet"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What animal has the longest pregnancy?",
+    "options": [
+      "Elephant",
+      "Whale",
+      "Giraffe"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which animal has fingerprints like humans?",
+    "options": [
+      "Koala",
+      "Tiger",
+      "Dolphin"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What color is a polar bear\u2019s skin?",
+    "options": [
+      "Black",
+      "White",
+      "Pink"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which bird is known for mimicking sounds?",
+    "options": [
+      "Lyrebird",
+      "Parrot",
+      "Crow"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What\u2019s a group of crows called?",
+    "options": [
+      "Murder",
+      "Herd",
+      "Swarm"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which animal has the strongest bite?",
+    "options": [
+      "Crocodile",
+      "Lion",
+      "Hyena"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which animal has no vocal cords?",
+    "options": [
+      "Giraffe",
+      "Zebra",
+      "Elephant"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What animal\u2019s poop is cube-shaped?",
+    "options": [
+      "Wombat",
+      "Koala",
+      "Possum"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which creature uses echolocation?",
+    "options": [
+      "Bat",
+      "Deer",
+      "Rabbit"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which animal can taste with its feet?",
+    "options": [
+      "Butterfly",
+      "Ant",
+      "Bee"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What animal changes color to blend in?",
+    "options": [
+      "Chameleon",
+      "Frog",
+      "Turtle"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which mammal can fly?",
+    "options": [
+      "Bat",
+      "Flying Squirrel",
+      "Lemur"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which animal builds the biggest dams?",
+    "options": [
+      "Beaver",
+      "Otter",
+      "Mole"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which insect has been to space?",
+    "options": [
+      "Fruit fly",
+      "Mosquito",
+      "Bee"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What is a baby kangaroo called?",
+    "options": [
+      "Joey",
+      "Cub",
+      "Fawn"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which bird can\u2019t fly but runs fast?",
+    "options": [
+      "Ostrich",
+      "Turkey",
+      "Goose"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which ocean animal has no bones?",
+    "options": [
+      "Jellyfish",
+      "Seal",
+      "Tuna"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which animal has the most teeth?",
+    "options": [
+      "Snail",
+      "Shark",
+      "Dog"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What do camels store in their humps?",
+    "options": [
+      "Fat",
+      "Water",
+      "Muscle"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which insect has ears on its legs?",
+    "options": [
+      "Cricket",
+      "Bee",
+      "Ant"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which reptile sheds its skin?",
+    "options": [
+      "Snake",
+      "Lizard",
+      "Frog"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which creature can clone itself?",
+    "options": [
+      "Starfish",
+      "Snail",
+      "Crab"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which bird migrates the farthest?",
+    "options": [
+      "Arctic Tern",
+      "Eagle",
+      "Pigeon"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What animal can see behind itself?",
+    "options": [
+      "Chameleon",
+      "Owl",
+      "Rabbit"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "True or False: Alligators can live over 100 years.",
+    "options": [
+      "False",
+      "True"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which fish can inflate like a balloon?",
+    "options": [
+      "Pufferfish",
+      "Salmon",
+      "Tuna"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which sea animal has 3 hearts?",
+    "options": [
+      "Octopus",
+      "Dolphin",
+      "Shark"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which animal is known for playing dead?",
+    "options": [
+      "Opossum",
+      "Fox",
+      "Frog"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which mammal has the most hair per inch?",
+    "options": [
+      "Otter",
+      "Dog",
+      "Cat"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which creature can live without its head for days?",
+    "options": [
+      "Cockroach",
+      "Spider",
+      "Ant"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "What animal uses tools to open shells?",
+    "options": [
+      "Otter",
+      "Crab",
+      "Seal"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which sea animal has a beak?",
+    "options": [
+      "Octopus",
+      "Eel",
+      "Whale"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which insect dances to communicate?",
+    "options": [
+      "Bee",
+      "Butterfly",
+      "Wasp"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which animal's eye is bigger than its brain?",
+    "options": [
+      "Ostrich",
+      "Elephant",
+      "Rhino"
+    ],
+    "answer": 0
+  },
+  {
+    "q": "Which reptile uses its tongue to smell?",
+    "options": [
+      "Snake",
+      "Turtle",
+      "Gecko"
+    ],
+    "answer": 0
+  }
+];
+
+    // Spinner wheel JavaScript
+ const segmentLabels = [
+      "Who Am I? STEM Edition",
+      "Beastly Secrets",
+      "Math Magic",
+      "Sci-Fi or Sci-Fact?",
+      "Force of Nature",
+      "Retro Tech Quest",
+      "She Did What?!",
+      "Myth Smashers",
+      "Why Tho?!"
+    ];
+
+    const segmentDescriptions = [
+      "Guess the science career based on a clue.",
+      "Odd animal facts and survival quirks.",
+      "Puzzles, tricks, and weird number facts.",
+      "Is it real science or movie magic?",
+      "Everyday physics explained simply.",
+      "Guess the gadget or tech through the ages.",
+      "Highlighting badass women in science.",
+      "Debunking common science myths.",
+      "Science behind hiccups, yawning, etc."
+    ];
+
+    const colors = [
+      "#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6",
+      "#1abc9c", "#e67e22", "#8e44ad", "#2c3e50", "#fd79a8"
+    ];
+
+    const canvas = document.getElementById("wheel");
+    const ctx = canvas.getContext("2d");
+    const radius = canvas.width / 2;
+    let currentRotation = 0;
+
+    function drawWheel() {
+      const anglePerSegment = 2 * Math.PI / segmentLabels.length;
+      for (let i = 0; i < segmentLabels.length; i++) {
+        const startAngle = i * anglePerSegment;
+        const endAngle = startAngle + anglePerSegment;
+        ctx.beginPath();
+        ctx.moveTo(radius, radius);
+        ctx.arc(radius, radius, radius, startAngle, endAngle);
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fill();
+        ctx.save();
+        ctx.translate(radius, radius);
+        ctx.rotate(startAngle + anglePerSegment / 2);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "white";
+        ctx.font = "bold 14px sans-serif";
+        ctx.fillText(segmentLabels[i], radius - 10, 5);
+        ctx.restore();
+      }
+    }
+
+    drawWheel();
+
+const questionMap = {
+  "Who Am I? STEM Edition": questions_who_am_i_stem_edition,
+  "Beastly Secrets": questions_beastly_secrets,
+  "Math Magic": questions_math_magic,
+  "Sci-Fi or Sci-Fact?": questions_sci_fi_or_sci_fact,
+  "Force of Nature": questions_force_of_nature,
+  "Retro Tech Quest": questions_retro_tech_quest,
+  "She Did What?!": questions_she_did_what,
+  "Myth Smashers": questions_myth_smashers,
+  "Why Tho?!": questions_why_tho
+};
+
+
+    document.getElementById("spinButton").onclick = () => {
+      const angle = Math.floor(Math.random() * 360);
+      currentRotation += 360 * 10 + angle;
+      canvas.style.transition = "transform 3s ease-out";
+      canvas.style.transform = `rotate(${currentRotation}deg)`;
+      setTimeout(() => {
+        const index = Math.floor(((360 - (angle % 360)) % 360) / (360 / segmentLabels.length));
+        const topic = segmentLabels[index % segmentLabels.length];
+        highlightSelectedSegment(index);
+        setTimeout(() => showQuestions(topic), 3000);
+      }, 3000);
+    };
+
+    function showQuestions(topic) {
+      const box = document.getElementById("questionBox");
+      const qs = questionMap[topic];
+      const seglab=segmentDescriptions[topic];
+      box.innerHTML = `<h3>${topic} Questions</h3><p>${segmentDescriptions[segmentLabels.indexOf(topic)]}</p>`;
+      const selectedQuestions = qs.sort(() => 0.5 - Math.random()).slice(0, 5);
+      selectedQuestions.forEach((item, idx) => {
+        const div = document.createElement("div");
+        div.className = "question";
+        div.id = `question${idx}`;
+        div.innerHTML = `<h4>${idx + 1}. ${item.q}</h4>` +
+          item.options.map((opt, i) => `<label><input type='radio' name='q${idx}' value='${i}'> ${opt}</label><br>`).join("") +
+          `<div id='answer${idx}' class='correct-answer' style='display:none;'>Correct answer: ${item.options[item.answer]}</div>`;
+        box.appendChild(div);
+      });
+      const submit = document.createElement("button");
+      submit.textContent = "Submit Answers";
+      submit.className = "action-button";
+      submit.onclick = () => {
+        let correct = 0;
+        selectedQuestions.forEach((item, idx) => {
+          const radios = document.getElementsByName(`q${idx}`);
+          let selectedValue = -1;
+          radios.forEach(r => {
+            if (r.checked) selectedValue = parseInt(r.value);
+          });
+          if (selectedValue === item.answer) {
+            correct++;
+            document.getElementById(`question${idx}`).classList.add("correct");
+          } else {
+            document.getElementById(`question${idx}`).classList.add("incorrect");
+          }
+          document.getElementById(`answer${idx}`).style.display = 'block';
+        });
+        const result = document.createElement("p");
+        result.innerHTML = `<strong>You got ${correct} out of 5 correct!</strong>`;
+        box.appendChild(result);
+        if (correct >= 3) {
+          document.getElementById("soundWin").play();
+          document.getElementById("popupWin").classList.remove("hide");
+          setTimeout(() => document.getElementById("popupWin").classList.add("hide"), 4000);
+        } else {
+          document.getElementById("soundFail").play();
+          const messages = [
+            "So close! Try again!",
+            "Almost had it! You got this!",
+            "Not this time, champ!",
+            "Keep spinning! You're learning!",
+            "Missed it, but you're awesome!"
+          ];
+          document.getElementById("popupTry").textContent = messages[Math.floor(Math.random() * messages.length)];
+          document.getElementById("popupTry").classList.remove("hide");
+          setTimeout(() => document.getElementById("popupTry").classList.add("hide"), 4000);
+        }
+        submit.style.display = 'none';
+      };
+      const reset = document.createElement("button");
+      reset.textContent = "Reset";
+      reset.className = "action-button";
+      reset.style.marginLeft = "10px";
+      reset.onclick = () => {
+        box.style.display = "none";
+        canvas.style.display = "block";
+        document.getElementById("spinButton").style.display = "block";
+        canvas.style.transition = "none";
+        canvas.style.transform = `rotate(${currentRotation}deg)`;
+        drawWheel();
+      };
+      box.appendChild(submit);
+      box.appendChild(reset);
+      box.style.display = "block";
+      canvas.style.display = "none";
+      document.getElementById("spinButton").style.display = "none";
+    }
+
+    function highlightSelectedSegment(index) {
+      drawWheel();
+      const anglePerSegment = 2 * Math.PI / segmentLabels.length;
+      const startAngle = index * anglePerSegment;
+      const endAngle = startAngle + anglePerSegment;
+
+      ctx.beginPath();
+      ctx.moveTo(radius, radius);
+      ctx.arc(radius, radius, radius, startAngle, endAngle);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.fill();
+
+      ctx.save();
+      ctx.translate(radius, radius);
+      ctx.rotate(startAngle + anglePerSegment / 2);
+      ctx.textAlign = "right";
+      ctx.fillStyle = "navy";
+      ctx.font = "bold 42px sans-serif";
+      ctx.shadowColor = "black";
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+      ctx.fillText(segmentLabels[index], radius - 10, 5);
+      ctx.restore();
+    }
+    
+  </script>
+</body>
+</html>
+
